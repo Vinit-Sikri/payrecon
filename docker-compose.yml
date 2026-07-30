@@ -1,0 +1,105 @@
+name: payrecon
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: payrecon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: payrecon
+      POSTGRES_PASSWORD: payrecon
+      POSTGRES_DB: payrecon
+    ports:
+      # Host port 5433 (not 5432) to avoid clashing with any other local Postgres.
+      - "5433:5432"
+    volumes:
+      - payrecon-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payrecon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: payrecon-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mock-gateway:
+    build:
+      context: .
+      dockerfile: services/mock-gateway/Dockerfile
+    container_name: payrecon-mock-gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides .env's NODE_ENV=development (meant for `npm run dev:*` on
+      # the host) — these containers run the esbuild-bundled production
+      # entrypoint, which never installs pino-pretty (dev-only dependency).
+      NODE_ENV: production
+      MOCK_GATEWAY_PORT: 4000
+      MOCK_GATEWAY_HOST: 0.0.0.0
+      INGESTION_WEBHOOK_URL: http://ingestion:3000/webhooks/payments
+    ports:
+      - "4000:4000"
+    depends_on:
+      ingestion:
+        condition: service_healthy
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: services/ingestion/Dockerfile
+    container_name: payrecon-ingestion
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      INGESTION_PORT: 3000
+      INGESTION_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://payrecon:payrecon@postgres:5432/payrecon
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  reconciliation-worker:
+    build:
+      context: .
+      dockerfile: services/reconciliation-worker/Dockerfile
+    container_name: payrecon-reconciliation-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      WORKER_HEALTH_PORT: 4100
+      WORKER_HEALTH_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://payrecon:payrecon@postgres:5432/payrecon
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "4100:4100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  payrecon-postgres-data:

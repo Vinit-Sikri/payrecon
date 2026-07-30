@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Real Postgres + Redis, not mocks — the integration tests exercise HMAC
+    # verification, Redis SETNX idempotency, Postgres FK constraints, and a
+    # full Redis Streams publish→consume→reconcile cycle, none of which a
+    # mock would meaningfully cover.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: payrecon
+          POSTGRES_PASSWORD: payrecon
+          POSTGRES_DB: payrecon
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U payrecon"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://payrecon:payrecon@localhost:5432/payrecon
+      REDIS_URL: redis://localhost:6379
+      WEBHOOK_HMAC_SECRET: ci-test-secret-not-for-production-use
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test (unit + integration)
+        run: npm run test
+
+      - name: Build
+        run: npm run build

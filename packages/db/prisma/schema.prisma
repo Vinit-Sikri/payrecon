@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+  REFUNDED
+}
+
+enum ReconciliationState {
+  PENDING
+  MATCHED
+  MISMATCHED
+  FAILED
+  DEAD_LETTERED
+}
+
+enum MismatchReason {
+  AMOUNT_MISMATCH
+  MISSING_ORDER
+  DUPLICATE_PAYMENT
+  DELAYED_WEBHOOK
+  STATUS_CONFLICT
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  amount    Int // minor units (e.g. cents)
+  currency  String      @db.VarChar(3)
+  status    OrderStatus @default(CREATED)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  paymentEvents PaymentEvent[]
+
+  @@index([status])
+  @@map("orders")
+}
+
+model PaymentEvent {
+  id             String  @id @default(uuid())
+  idempotencyKey String  @unique
+  gatewayEventId String  @unique
+  orderId        String?
+  order          Order?  @relation(fields: [orderId], references: [id])
+
+  amount       Int // minor units
+  currency     String        @db.VarChar(3)
+  gatewayStatus PaymentStatus
+
+  reconciliationState ReconciliationState @default(PENDING)
+  attempts            Int                 @default(0)
+  lastError           String?
+
+  rawPayload  Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  mismatches Mismatch[]
+
+  @@index([reconciliationState])
+  @@index([orderId])
+  @@map("payment_events")
+}
+
+model Mismatch {
+  id             String       @id @default(uuid())
+  paymentEventId String
+  paymentEvent   PaymentEvent @relation(fields: [paymentEventId], references: [id])
+  reason         MismatchReason
+  detail         Json
+  createdAt      DateTime     @default(now())
+
+  @@index([reason])
+  @@map("mismatches")
+}
+
+model DeadLetterEvent {
+  id             String   @id @default(uuid())
+  paymentEventId String   @unique
+  payload        Json
+  reason         String
+  attempts       Int
+  failedAt       DateTime @default(now())
+
+  @@map("dead_letter_events")
+}

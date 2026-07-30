@@ -1,0 +1,35 @@
+{
+  "name": "payrecon",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Payment Reconciliation & Settlement Engine",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run generate --workspace=@payrecon/db",
+    "db:migrate": "npm run migrate:dev --workspace=@payrecon/db",
+    "dev:ingestion": "npm run dev --workspace=@payrecon/ingestion",
+    "dev:mock-gateway": "npm run dev --workspace=@payrecon/mock-gateway",
+    "dev:worker": "npm run dev --workspace=@payrecon/reconciliation-worker"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "dotenv-cli": "^7.4.2",
+    "esbuild": "^0.23.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

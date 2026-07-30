@@ -1,0 +1,23 @@
+{
+  "name": "@payrecon/mock-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/server.js",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@payrecon/shared": "*",
+    "fastify": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "tsx": "^4.16.5",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
