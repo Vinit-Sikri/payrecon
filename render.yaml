@@ -1,0 +1,112 @@
+services:
+  - name: payrecon-ingestion
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/ingestion/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Render web services must bind to $PORT (default 10000) — both PORT
+      # and our app-specific INGESTION_PORT are set to the same value so
+      # Fastify actually listens where Render routes traffic.
+      - key: PORT
+        value: 10000
+      - key: INGESTION_PORT
+        value: 10000
+      - key: INGESTION_HOST
+        value: 0.0.0.0
+      - key: IDEMPOTENCY_TTL_SECONDS
+        value: 86400
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: WEBHOOK_HMAC_SECRET
+        sync: false
+      # Placeholder — update to the real deployed dashboard URL once Vercel
+      # is live (Render auto-redeploys this service when the value changes).
+      - key: DASHBOARD_ORIGIN
+        value: http://localhost:5173
+
+  - name: payrecon-mock-gateway
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/mock-gateway/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PORT
+        value: 10000
+      - key: MOCK_GATEWAY_PORT
+        value: 10000
+      - key: MOCK_GATEWAY_HOST
+        value: 0.0.0.0
+      # Public onrender.com URL rather than Render's private network —
+      # simpler than composing fromService host+port with a literal path
+      # suffix, and the extra public-internet hop is irrelevant at this scale.
+      - key: INGESTION_WEBHOOK_URL
+        value: https://payrecon-ingestion.onrender.com/webhooks/payments
+      - key: WEBHOOK_HMAC_SECRET
+        sync: false
+      - key: MIN_DELAY_MS
+        value: 500
+      - key: MAX_DELAY_MS
+        value: 4000
+      - key: FAILURE_RATE
+        value: 0.15
+      - key: PENDING_RATE
+        value: 0.1
+      - key: DUPLICATE_RATE
+        value: 0.15
+      - key: WEBHOOK_MAX_ATTEMPTS
+        value: 3
+      - key: DASHBOARD_ORIGIN
+        value: http://localhost:5173
+
+  - name: payrecon-worker
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/reconciliation-worker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PORT
+        value: 10000
+      - key: WORKER_HEALTH_PORT
+        value: 10000
+      - key: WORKER_HEALTH_HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RECONCILIATION_MAX_ATTEMPTS
+        value: 5
+      - key: RECONCILIATION_DELAY_THRESHOLD_MS
+        value: 3600000
+      - key: RECONCILIATION_LOCK_TTL_MS
+        value: 30000
+      - key: STREAM_BLOCK_MS
+        value: 5000
+      - key: STREAM_BATCH_SIZE
+        value: 10
+      - key: RETRY_POLL_INTERVAL_MS
+        value: 5000
