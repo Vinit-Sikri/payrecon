@@ -1,6 +1,37 @@
 # PayRecon
 
-A payment reconciliation & settlement engine — a portfolio project modeling how a real fintech backend ingests payment-gateway webhooks, reconciles them against internal order records, books a double-entry ledger, reconciles a second time against bank settlement files, and surfaces all of it through both an API and an operator dashboard. Built as four independently deployable services (three backend, one frontend) in an npm-workspaces monorepo, all runnable on free-tier infrastructure.
+[![Live Demo](https://img.shields.io/badge/demo-live-1baf7a?style=flat-square)](https://payrecon-dashboard.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-2a78d6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-5-000000?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-4a3aa7?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Streams-e34948?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-eda100?style=flat-square)](LICENSE)
+
+A payment reconciliation & settlement engine — a portfolio project modeling how a real fintech backend ingests payment-gateway webhooks, reconciles them against internal order records, books a double-entry ledger, reconciles a second time against bank settlement files, and surfaces all of it through both an API and an operator dashboard. Built as four independently deployable services (three backend, one frontend) in an npm-workspaces monorepo, all runnable on free-tier infrastructure — and actually deployed on it, not just documented.
+
+**New here?** If you'd rather read what this project *does* in plain English before the engineering detail, see **[EXPLAINED-SIMPLY.md](EXPLAINED-SIMPLY.md)**.
+
+## 🚀 Live demo
+
+| | |
+|---|---|
+| **Dashboard** | **[payrecon-dashboard.vercel.app](https://payrecon-dashboard.vercel.app)** |
+| Ingestion API + Swagger docs | [payrecon-ingestion.onrender.com/docs](https://payrecon-ingestion.onrender.com/docs) |
+| Mock payment gateway | [payrecon-mock-gateway.onrender.com](https://payrecon-mock-gateway.onrender.com/health) |
+| Reconciliation worker (health only) | [payrecon-worker.onrender.com/health](https://payrecon-worker.onrender.com/health) |
+
+> The three backend services run on Render's free tier, which spins a service down after ~15 minutes idle — the **first** request after a quiet period can take 30-50s to wake it back up. Everything after that is normal speed. See [Live deployment](#live-deployment) below for the full setup.
+
+## ✨ Highlights
+
+- **Idempotent webhook intake** — Redis `SETNX` fast path + a DB unique-constraint backstop, so a redelivered or duplicated payment notification is never double-processed.
+- **Redis Streams consumer group + distributed lock** — at-least-once delivery with a `SET NX PX` lock closing the gap `XCLAIM` reassignment can otherwise open.
+- **Exponential backoff retries with dead-lettering** — every failed message gets its own independent backoff curve via a Redis sorted set, not a blanket retry policy.
+- **Double-entry ledger** — every settled payment books a balanced debit/credit pair inside a DB transaction; `/ledger/balance` proves the books net to zero, live.
+- **Two independent reconciliations** — the real-time webhook path and a second, separate bank-settlement-file path have to *agree* before a ledger entry is considered settled.
+- **Real integration tests** — against live Postgres/Redis, not mocks, across all three backend services.
+- **Actually deployed** — Postgres on Neon, Redis on Upstash, backend on Render, frontend on Vercel — see below.
 
 ## Architecture
 
@@ -159,15 +190,20 @@ npm test                       # unit + integration, all workspaces
 
 Integration tests run against the same docker-compose Postgres/Redis (real infra, not mocks) — they need `docker compose up -d postgres redis` and a migrated database first.
 
-### 5. Free-tier services for production deployment
+### 5. Live deployment
 
-You'll need to sign up for and configure:
-- **[Neon](https://neon.tech) or [Supabase](https://supabase.com)** (Postgres) → set `DATABASE_URL`
-- **[Upstash](https://upstash.com)** (Redis) → set `REDIS_URL` (their `rediss://` TLS URL works directly with the `createRedisClient` factory in `packages/shared`)
+The [live demo](#live-demo) above runs entirely on free-tier infrastructure, wired up exactly like this:
 
-No other paid infrastructure is required — Redis Streams (not a separate Kafka service) handles the queue.
+| Layer | Service | Notes |
+|---|---|---|
+| Postgres | **[Neon](https://neon.tech)** | `DATABASE_URL` set as a secret on each backend Render service; migrations applied via `prisma migrate deploy` |
+| Redis | **[Upstash](https://upstash.com)** | Regional (not Global) database; the `rediss://` TLS URL works directly with the `createRedisClient` factory in `packages/shared` |
+| Backend (3 services) | **[Render](https://render.com)** | Free Docker web services, provisioned from [`render.yaml`](render.yaml) as a single Blueprint — reuses the exact same Dockerfiles as local Docker Compose. `reconciliation-worker` is deployed as a `web` service (not Render's paid-only "Background Worker" type) purely so its `/health` endpoint satisfies Render's free-tier requirement of an HTTP listener; internally it still just runs the stream consumer |
+| Frontend | **[Vercel](https://vercel.com)** | Deployed straight from the repo with **Root Directory** set to `services/dashboard`; `VITE_API_BASE_URL`/`VITE_GATEWAY_BASE_URL` set as build-time env vars pointing at the Render URLs above |
 
-If you deploy the dashboard somewhere other than `localhost:5173`, set `DASHBOARD_ORIGIN` on both ingestion and mock-gateway to that real origin (CORS is allow-listed, not wildcarded) and rebuild the dashboard with `VITE_API_BASE_URL`/`VITE_GATEWAY_BASE_URL` pointing at your deployed backend URLs — these are baked in at build time, not read at runtime.
+No paid infrastructure anywhere in this chain — Redis Streams (not a separate Kafka service) handles the queue, and every other piece fits inside its provider's free tier.
+
+**To redeploy your own copy:** sign up for Neon + Upstash, run `prisma migrate deploy` against the Neon URL, then import the repo as a Render Blueprint (it'll prompt for `DATABASE_URL`/`REDIS_URL`/`WEBHOOK_HMAC_SECRET` — the secrets `render.yaml` deliberately leaves out of source control) and as a Vercel project (root directory `services/dashboard`). Once both are up, set `DASHBOARD_ORIGIN` on the two Render web services to your real Vercel URL — CORS is allow-listed, not wildcarded, so this step is required, not optional.
 
 ## Design decisions
 
