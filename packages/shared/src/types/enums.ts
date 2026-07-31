@@ -36,3 +36,35 @@ export const MismatchReason = {
   STATUS_CONFLICT: "STATUS_CONFLICT",
 } as const;
 export type MismatchReason = (typeof MismatchReason)[keyof typeof MismatchReason];
+
+export const LedgerAccountType = {
+  GATEWAY_RECEIVABLE: "GATEWAY_RECEIVABLE",
+  MERCHANT_PAYABLE: "MERCHANT_PAYABLE",
+} as const;
+export type LedgerAccountType = (typeof LedgerAccountType)[keyof typeof LedgerAccountType];
+
+export const LedgerDirection = {
+  DEBIT: "DEBIT",
+  CREDIT: "CREDIT",
+} as const;
+export type LedgerDirection = (typeof LedgerDirection)[keyof typeof LedgerDirection];
+
+export const LedgerEntryStatus = {
+  PENDING_SETTLEMENT: "PENDING_SETTLEMENT",
+  SETTLED: "SETTLED",
+} as const;
+export type LedgerEntryStatus = (typeof LedgerEntryStatus)[keyof typeof LedgerEntryStatus];
+
+export const SettlementBatchStatus = {
+  PROCESSING: "PROCESSING",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+} as const;
+export type SettlementBatchStatus = (typeof SettlementBatchStatus)[keyof typeof SettlementBatchStatus];
+
+export const SettlementMatchStatus = {
+  MATCHED: "MATCHED",
+  AMOUNT_MISMATCH: "AMOUNT_MISMATCH",
+  UNMATCHED: "UNMATCHED",
+} as const;
+export type SettlementMatchStatus = (typeof SettlementMatchStatus)[keyof typeof SettlementMatchStatus];

@@ -1,0 +1,270 @@
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --page-plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page-plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+}
+
+.app-nav {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+}
+
+.app-nav h1 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 24px 8px;
+}
+
+.app-nav a {
+  display: block;
+  padding: 8px 8px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.app-nav a:hover {
+  background: var(--gridline);
+}
+
+.app-nav a.active {
+  background: var(--series-1);
+  color: white;
+}
+
+.app-main {
+  flex: 1;
+  padding: 32px 40px;
+  max-width: 1100px;
+  overflow-x: auto;
+}
+
+.app-main h2 {
+  font-size: 20px;
+  margin: 0 0 20px 0;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.stat-tile .value {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: proportional-nums;
+}
+
+.stat-tile .label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.status-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-good {
+  color: var(--status-good);
+}
+.status-good .dot {
+  background: var(--status-good);
+}
+.status-warning {
+  color: #8a6200;
+}
+.status-warning .dot {
+  background: var(--status-warning);
+}
+.status-serious {
+  color: var(--status-serious);
+}
+.status-serious .dot {
+  background: var(--status-serious);
+}
+.status-critical {
+  color: var(--status-critical);
+}
+.status-critical .dot {
+  background: var(--status-critical);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.card h3 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+input,
+button {
+  font-family: inherit;
+  font-size: 13px;
+}
+
+input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page-plane);
+  color: var(--text-primary);
+}
+
+button {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--series-1);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--series-1);
+  border: 1px solid var(--series-1);
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.balance-figure {
+  font-size: 32px;
+  font-weight: 700;
+}

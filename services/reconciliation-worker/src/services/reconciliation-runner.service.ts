@@ -1,8 +1,11 @@
 import type { FastifyBaseLogger } from "fastify";
+import { prisma } from "@payrecon/db";
 import type { OrderRepository } from "../repositories/order.repository";
 import type { PaymentEventRepository } from "../repositories/payment-event.repository";
 import type { MismatchRepository } from "../repositories/mismatch.repository";
+import type { LedgerRepository } from "../repositories/ledger.repository";
 import { reconcile } from "./reconciliation.service";
+import { createLedgerEntries } from "./ledger.service";
 
 export interface ReconciliationRunnerOptions {
   delayThresholdMs: number;
@@ -19,6 +22,7 @@ export class ReconciliationRunner {
     private readonly orderRepository: OrderRepository,
     private readonly paymentEventRepository: PaymentEventRepository,
     private readonly mismatchRepository: MismatchRepository,
+    private readonly ledgerRepository: LedgerRepository,
     private readonly logger: FastifyBaseLogger,
     private readonly options: ReconciliationRunnerOptions,
   ) {}
@@ -51,9 +55,29 @@ export class ReconciliationRunner {
 
     if (result.orderStatusUpdate && order) {
       await this.orderRepository.updateStatus(order.id, result.orderStatusUpdate);
-    }
 
-    await this.paymentEventRepository.markProcessed(paymentEvent.id, result.state);
+      // Ledger writes + the reconciliation-state update are the one place a
+      // partial write is a real correctness bug (a debit persisted without
+      // its matching credit breaks the balance invariant /ledger/balance
+      // relies on) — wrap just these two in a transaction. The mismatch and
+      // order-status writes above are left as-is; they're already tolerant
+      // of partial failure via retries/attempts.
+      const drafts = createLedgerEntries({
+        amount: paymentEvent.amount,
+        currency: paymentEvent.currency,
+        orderStatusUpdate: result.orderStatusUpdate,
+      });
+
+      await prisma.$transaction(async (tx) => {
+        await this.ledgerRepository.createMany(tx, paymentEvent.id, order.id, drafts);
+        await tx.paymentEvent.update({
+          where: { id: paymentEvent.id },
+          data: { reconciliationState: result.state, processedAt: new Date() },
+        });
+      });
+    } else {
+      await this.paymentEventRepository.markProcessed(paymentEvent.id, result.state);
+    }
 
     this.logger.info(
       { paymentEventId, state: result.state, mismatchCount: result.mismatches.length },

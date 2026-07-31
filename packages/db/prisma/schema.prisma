@@ -37,6 +37,33 @@ enum MismatchReason {
   STATUS_CONFLICT
 }
 
+enum LedgerAccountType {
+  GATEWAY_RECEIVABLE
+  MERCHANT_PAYABLE
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerEntryStatus {
+  PENDING_SETTLEMENT
+  SETTLED
+}
+
+enum SettlementBatchStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SettlementMatchStatus {
+  MATCHED
+  AMOUNT_MISMATCH
+  UNMATCHED
+}
+
 model Order {
   id        String      @id @default(uuid())
   amount    Int // minor units (e.g. cents)
@@ -46,6 +73,7 @@ model Order {
   updatedAt DateTime    @updatedAt
 
   paymentEvents PaymentEvent[]
+  ledgerEntries LedgerEntry[]
 
   @@index([status])
   @@map("orders")
@@ -70,7 +98,9 @@ model PaymentEvent {
   receivedAt  DateTime  @default(now())
   processedAt DateTime?
 
-  mismatches Mismatch[]
+  mismatches        Mismatch[]
+  ledgerEntries     LedgerEntry[]
+  settlementRecords SettlementRecord[]
 
   @@index([reconciliationState])
   @@index([orderId])
@@ -98,4 +128,66 @@ model DeadLetterEvent {
   failedAt       DateTime @default(now())
 
   @@map("dead_letter_events")
+}
+
+model LedgerEntry {
+  id             String            @id @default(uuid())
+  paymentEventId String
+  paymentEvent   PaymentEvent      @relation(fields: [paymentEventId], references: [id])
+  orderId        String
+  order          Order             @relation(fields: [orderId], references: [id])
+
+  accountType LedgerAccountType
+  direction   LedgerDirection
+  amount      Int // minor units, always positive; sign comes from direction
+  currency    String            @db.VarChar(3)
+
+  status             LedgerEntryStatus @default(PENDING_SETTLEMENT)
+  settlementRecordId String?
+  settlementRecord   SettlementRecord? @relation(fields: [settlementRecordId], references: [id])
+  createdAt          DateTime          @default(now())
+  settledAt          DateTime?
+
+  @@index([paymentEventId])
+  @@index([status])
+  @@index([accountType])
+  @@map("ledger_entries")
+}
+
+model SettlementBatch {
+  id              String                @id @default(uuid())
+  filename        String
+  fileHash        String                @unique
+  uploadedAt      DateTime              @default(now())
+  status          SettlementBatchStatus @default(PROCESSING)
+  totalRecords    Int                   @default(0)
+  matchedCount    Int                   @default(0)
+  mismatchedCount Int                   @default(0)
+  unmatchedCount  Int                   @default(0)
+
+  records SettlementRecord[]
+
+  @@map("settlement_batches")
+}
+
+model SettlementRecord {
+  id                String                @id @default(uuid())
+  settlementBatchId String
+  settlementBatch   SettlementBatch       @relation(fields: [settlementBatchId], references: [id])
+
+  gatewayEventId String
+  amount         Int // minor units
+  currency       String                @db.VarChar(3)
+  settledAt      DateTime
+  matchStatus    SettlementMatchStatus
+
+  paymentEventId String?
+  paymentEvent   PaymentEvent?         @relation(fields: [paymentEventId], references: [id])
+
+  ledgerEntries LedgerEntry[]
+  createdAt     DateTime              @default(now())
+
+  @@index([settlementBatchId])
+  @@index([gatewayEventId])
+  @@map("settlement_records")
 }

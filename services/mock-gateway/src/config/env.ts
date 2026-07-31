@@ -17,6 +17,7 @@ const envSchema = z.object({
   PENDING_RATE: z.coerce.number().min(0).max(1).default(0.1),
   DUPLICATE_RATE: z.coerce.number().min(0).max(1).default(0.15),
   WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  DASHBOARD_ORIGIN: z.string().default("http://localhost:5173"),
 });
 
 export type Env = z.infer<typeof envSchema>;

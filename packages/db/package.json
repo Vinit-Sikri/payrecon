@@ -9,13 +9,15 @@
     "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "studio": "dotenv -e ../../.env -- prisma studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "settlement:demo-csv": "dotenv -e ../../.env -- tsx scripts/generate-settlement-csv.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0"
   },
   "devDependencies": {
     "prisma": "^5.18.0",
+    "tsx": "^4.16.5",
     "typescript": "^5.5.4"
   }
 }

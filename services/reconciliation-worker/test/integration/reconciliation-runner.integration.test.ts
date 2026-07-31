@@ -4,6 +4,7 @@ import { OrderStatus, PaymentStatus, ReconciliationState, MismatchReason } from 
 import { OrderRepository } from "../../src/repositories/order.repository";
 import { PaymentEventRepository } from "../../src/repositories/payment-event.repository";
 import { MismatchRepository } from "../../src/repositories/mismatch.repository";
+import { LedgerRepository } from "../../src/repositories/ledger.repository";
 import { ReconciliationRunner } from "../../src/services/reconciliation-runner.service";
 
 const noopLogger = {
@@ -17,11 +18,20 @@ describe("ReconciliationRunner (integration)", () => {
   const orderRepository = new OrderRepository();
   const paymentEventRepository = new PaymentEventRepository();
   const mismatchRepository = new MismatchRepository();
-  const runner = new ReconciliationRunner(orderRepository, paymentEventRepository, mismatchRepository, noopLogger, {
-    delayThresholdMs: 3_600_000,
-  });
+  const ledgerRepository = new LedgerRepository();
+  const runner = new ReconciliationRunner(
+    orderRepository,
+    paymentEventRepository,
+    mismatchRepository,
+    ledgerRepository,
+    noopLogger,
+    { delayThresholdMs: 3_600_000 },
+  );
 
   beforeEach(async () => {
+    await prisma.ledgerEntry.deleteMany();
+    await prisma.settlementRecord.deleteMany();
+    await prisma.settlementBatch.deleteMany();
     await prisma.mismatch.deleteMany();
     await prisma.paymentEvent.deleteMany();
     await prisma.order.deleteMany();
@@ -50,10 +60,43 @@ describe("ReconciliationRunner (integration)", () => {
 
     const updatedEvent = await prisma.paymentEvent.findUniqueOrThrow({ where: { id: event.id } });
     const updatedOrder = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    const ledgerEntries = await prisma.ledgerEntry.findMany({ where: { paymentEventId: event.id } });
 
     expect(updatedEvent.reconciliationState).toBe(ReconciliationState.MATCHED);
     expect(updatedEvent.processedAt).not.toBeNull();
     expect(updatedOrder.status).toBe(OrderStatus.PAID);
+
+    expect(ledgerEntries).toHaveLength(2);
+    const debit = ledgerEntries.find((e) => e.direction === "DEBIT");
+    const credit = ledgerEntries.find((e) => e.direction === "CREDIT");
+    expect(debit?.accountType).toBe("GATEWAY_RECEIVABLE");
+    expect(credit?.accountType).toBe("MERCHANT_PAYABLE");
+    expect(debit?.amount).toBe(5000);
+    expect(credit?.amount).toBe(5000);
+  });
+
+  it("books no ledger entries for a legitimately-FAILED payment (MATCHED but no money moved)", async () => {
+    const order = await prisma.order.create({ data: { amount: 5000, currency: "USD" } });
+    const event = await prisma.paymentEvent.create({
+      data: {
+        gatewayEventId: "evt-failed-1",
+        idempotencyKey: "evt-failed-1",
+        orderId: order.id,
+        amount: 5000,
+        currency: "USD",
+        gatewayStatus: PaymentStatus.FAILED,
+        rawPayload: { orderId: order.id },
+        receivedAt: new Date(),
+      },
+    });
+
+    await runner.run(event.id);
+
+    const updatedEvent = await prisma.paymentEvent.findUniqueOrThrow({ where: { id: event.id } });
+    const ledgerEntries = await prisma.ledgerEntry.findMany({ where: { paymentEventId: event.id } });
+
+    expect(updatedEvent.reconciliationState).toBe(ReconciliationState.MATCHED);
+    expect(ledgerEntries).toHaveLength(0);
   });
 
   it("marks an amount mismatch MISMATCHED and persists a Mismatch row, without mutating order status", async () => {

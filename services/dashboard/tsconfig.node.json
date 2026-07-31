@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    // Composite projects must emit (TS6304), so this is the one project
+    // in this workspace that can't just set noEmit — send its output into
+    // node_modules (already gitignored) instead of next to the source
+    // files, which is what happens with no outDir set at all.
+    "outDir": "node_modules/.tsc-out",
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts"]
+}

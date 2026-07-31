@@ -13,14 +13,15 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "test": "npm run test --workspaces --if-present",
     "db:generate": "npm run generate --workspace=@payrecon/db",
     "db:migrate": "npm run migrate:dev --workspace=@payrecon/db",
     "dev:ingestion": "npm run dev --workspace=@payrecon/ingestion",
     "dev:mock-gateway": "npm run dev --workspace=@payrecon/mock-gateway",
-    "dev:worker": "npm run dev --workspace=@payrecon/reconciliation-worker"
+    "dev:worker": "npm run dev --workspace=@payrecon/reconciliation-worker",
+    "dev:dashboard": "npm run dev --workspace=@payrecon/dashboard"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.18.0",
@@ -29,6 +30,8 @@
     "esbuild": "^0.23.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.3.3",
     "typescript": "^5.5.4"
   }

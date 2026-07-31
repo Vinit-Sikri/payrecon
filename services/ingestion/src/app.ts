@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import { createLogger, createRedisClient, StreamProducer, type RedisClient } from "@payrecon/shared";
 import type { Env } from "./config/env";
 import { registerErrorHandler } from "./middleware/error-handler";
@@ -9,13 +10,19 @@ import { healthRoutes } from "./routes/health.routes";
 import { orderRoutes } from "./routes/order.routes";
 import { webhookRoutes } from "./routes/webhook.routes";
 import { statsRoutes } from "./routes/stats.routes";
+import { ledgerRoutes } from "./routes/ledger.routes";
+import { settlementRoutes } from "./routes/settlement.routes";
 import { OrderRepository } from "./repositories/order.repository";
 import { PaymentEventRepository } from "./repositories/payment-event.repository";
 import { MismatchRepository } from "./repositories/mismatch.repository";
+import { LedgerRepository } from "./repositories/ledger.repository";
+import { SettlementRepository } from "./repositories/settlement.repository";
 import { OrderService } from "./services/order.service";
 import { IdempotencyService } from "./services/idempotency.service";
 import { WebhookService } from "./services/webhook.service";
 import { StatsService } from "./services/stats.service";
+import { LedgerService } from "./services/ledger.service";
+import { SettlementService } from "./services/settlement.service";
 
 export interface BuiltApp {
   app: FastifyInstance;
@@ -49,6 +56,8 @@ export function buildApp(env: Env): BuiltApp {
   const orderRepository = new OrderRepository();
   const paymentEventRepository = new PaymentEventRepository();
   const mismatchRepository = new MismatchRepository();
+  const ledgerRepository = new LedgerRepository();
+  const settlementRepository = new SettlementRepository();
 
   const orderService = new OrderService(orderRepository);
   const idempotencyService = new IdempotencyService(redis, env.IDEMPOTENCY_TTL_SECONDS);
@@ -60,9 +69,12 @@ export function buildApp(env: Env): BuiltApp {
     streamProducer,
   });
   const statsService = new StatsService(paymentEventRepository, mismatchRepository);
+  const ledgerService = new LedgerService(ledgerRepository);
+  const settlementService = new SettlementService(settlementRepository, paymentEventRepository, ledgerRepository);
 
   registerCorrelationId(app);
   registerErrorHandler(app);
+  void app.register(cors, { origin: env.DASHBOARD_ORIGIN });
 
   // Called directly (not app.register(registerSwagger)) — .register() would
   // create a child encapsulation context, and @fastify/swagger's onRoute
@@ -76,6 +88,8 @@ export function buildApp(env: Env): BuiltApp {
   app.register(orderRoutes(orderService), { prefix: "/orders" });
   app.register(webhookRoutes(webhookService), { prefix: "/webhooks" });
   app.register(statsRoutes(statsService), { prefix: "/stats" });
+  app.register(ledgerRoutes(ledgerService), { prefix: "/ledger" });
+  app.register(settlementRoutes(settlementService), { prefix: "/settlements" });
 
   return { app, redis };
 }

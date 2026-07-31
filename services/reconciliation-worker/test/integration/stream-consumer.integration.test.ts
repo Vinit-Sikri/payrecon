@@ -8,6 +8,7 @@ import { OrderRepository } from "../../src/repositories/order.repository";
 import { PaymentEventRepository } from "../../src/repositories/payment-event.repository";
 import { MismatchRepository } from "../../src/repositories/mismatch.repository";
 import { DeadLetterRepository } from "../../src/repositories/dead-letter.repository";
+import { LedgerRepository } from "../../src/repositories/ledger.repository";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const noopLogger = { info: () => {}, warn: () => {}, error: () => {} } as any;
@@ -38,6 +39,9 @@ describe("StreamConsumer (integration)", () => {
   let orderRepository: OrderRepository;
 
   beforeEach(async () => {
+    await prisma.ledgerEntry.deleteMany();
+    await prisma.settlementRecord.deleteMany();
+    await prisma.settlementBatch.deleteMany();
     await prisma.mismatch.deleteMany();
     await prisma.paymentEvent.deleteMany();
     await prisma.order.deleteMany();
@@ -49,10 +53,16 @@ describe("StreamConsumer (integration)", () => {
     paymentEventRepository = new PaymentEventRepository();
     const mismatchRepository = new MismatchRepository();
     const deadLetterRepository = new DeadLetterRepository();
+    const ledgerRepository = new LedgerRepository();
 
-    const runner = new ReconciliationRunner(orderRepository, paymentEventRepository, mismatchRepository, noopLogger, {
-      delayThresholdMs: env.RECONCILIATION_DELAY_THRESHOLD_MS,
-    });
+    const runner = new ReconciliationRunner(
+      orderRepository,
+      paymentEventRepository,
+      mismatchRepository,
+      ledgerRepository,
+      noopLogger,
+      { delayThresholdMs: env.RECONCILIATION_DELAY_THRESHOLD_MS },
+    );
 
     consumer = new StreamConsumer(redis, runner, paymentEventRepository, deadLetterRepository, noopLogger, {
       maxAttempts: env.RECONCILIATION_MAX_ATTEMPTS,

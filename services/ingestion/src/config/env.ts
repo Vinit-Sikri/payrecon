@@ -10,6 +10,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   WEBHOOK_HMAC_SECRET: z.string().min(16, "WEBHOOK_HMAC_SECRET should be at least 16 characters"),
   IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
+  DASHBOARD_ORIGIN: z.string().default("http://localhost:5173"),
 });
 
 export type Env = z.infer<typeof envSchema>;

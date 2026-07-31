@@ -12,6 +12,7 @@ import { OrderRepository } from "./repositories/order.repository";
 import { PaymentEventRepository } from "./repositories/payment-event.repository";
 import { MismatchRepository } from "./repositories/mismatch.repository";
 import { DeadLetterRepository } from "./repositories/dead-letter.repository";
+import { LedgerRepository } from "./repositories/ledger.repository";
 
 async function main(): Promise<void> {
   const env = getEnv();
@@ -28,10 +29,16 @@ async function main(): Promise<void> {
   const paymentEventRepository = new PaymentEventRepository();
   const mismatchRepository = new MismatchRepository();
   const deadLetterRepository = new DeadLetterRepository();
+  const ledgerRepository = new LedgerRepository();
 
-  const runner = new ReconciliationRunner(orderRepository, paymentEventRepository, mismatchRepository, logger, {
-    delayThresholdMs: env.RECONCILIATION_DELAY_THRESHOLD_MS,
-  });
+  const runner = new ReconciliationRunner(
+    orderRepository,
+    paymentEventRepository,
+    mismatchRepository,
+    ledgerRepository,
+    logger,
+    { delayThresholdMs: env.RECONCILIATION_DELAY_THRESHOLD_MS },
+  );
 
   const consumer = new StreamConsumer(redis, runner, paymentEventRepository, deadLetterRepository, logger, {
     maxAttempts: env.RECONCILIATION_MAX_ATTEMPTS,

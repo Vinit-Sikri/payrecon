@@ -101,5 +101,23 @@ services:
       redis:
         condition: service_healthy
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+      args:
+        # Browser-facing URLs (host-mapped ports), not in-network service
+        # names — the built JS bundle runs in the user's browser, outside
+        # the compose network. See services/dashboard/Dockerfile.
+        VITE_API_BASE_URL: http://localhost:3000
+        VITE_GATEWAY_BASE_URL: http://localhost:4000
+    container_name: payrecon-dashboard
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      ingestion:
+        condition: service_healthy
+
 volumes:
   payrecon-postgres-data:

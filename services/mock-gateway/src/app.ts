@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import { createLogger } from "@payrecon/shared";
 import type { Env } from "./config/env";
 import { registerErrorHandler } from "./middleware/error-handler";
@@ -31,6 +32,7 @@ export function buildApp(env: Env): BuiltApp {
 
   registerCorrelationId(app);
   registerErrorHandler(app);
+  void app.register(cors, { origin: env.DASHBOARD_ORIGIN });
 
   app.register(healthRoutes);
   app.register(paymentRoutes(simulationService), { prefix: "/payments" });

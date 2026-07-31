@@ -25,6 +25,12 @@ describe("webhook ingestion (integration)", () => {
   });
 
   beforeEach(async () => {
+    // ledgerEntry/settlementRecord/settlementBatch have FK references to
+    // paymentEvent — must clear them first (settlement.integration.test.ts
+    // shares this same live Postgres instance and can leave rows behind).
+    await prisma.ledgerEntry.deleteMany();
+    await prisma.settlementRecord.deleteMany();
+    await prisma.settlementBatch.deleteMany();
     await prisma.mismatch.deleteMany();
     await prisma.paymentEvent.deleteMany();
     await prisma.order.deleteMany();
